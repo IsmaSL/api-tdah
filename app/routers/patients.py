@@ -1,13 +1,12 @@
 # Router de los pacientes
-from datetime import datetime
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from app import crud
 from .. import models
-from ..schemas import UsuarioCreatePatient, UserPublic
+from ..schemas import PrediccionEntrada, PromedioRespuesta, UsuarioCreatePatient, UserPublic
 from ..dependencies import get_db, get_current_active_user
 from sqlalchemy.orm import Session
 from typing import List
-from sqlalchemy import desc
 
 router = APIRouter()
 
@@ -51,6 +50,31 @@ def get_paciente(
     paciente.datos_generales = paciente_datos_generales
     paciente.datos_clinicos = paciente_datos_clinicos
 
-    
     return paciente
 
+@router.post("/final_results/", response_model=PromedioRespuesta)
+def calcular_promedio_pruebas(
+        datos: PrediccionEntrada, 
+        current_user: models.Usuario = Depends(get_current_active_user),
+        db: Session = Depends(get_db)
+    ):
+    resultado = crud.calcular_promedio_pruebas(db, datos.idPaciente, datos.prediccionML)
+
+    if resultado is None:
+        raise HTTPException(status_code=404, detail="No se encontraron pruebas para el paciente.")
+    
+    # Buscar o crear un registro en datos_clinicos
+    datos_clinicos = db.query(models.DatosClinicos).filter(models.DatosClinicos.idUsuario == datos.idPaciente).first()
+    if not datos_clinicos:
+        # Crear nuevo registro si no existe
+        datos_clinicos = models.DatosClinicos(idUsuario=datos.idPaciente)
+        db.add(datos_clinicos)
+    
+    # Actualizar datos
+    datos_clinicos.adhd = str(resultado['diagnostico']) if resultado['diagnostico'] is not None else None
+    datos_clinicos.prob = resultado['prevalencia']
+    datos_clinicos.fecha_diagnostico = date.today()
+
+    db.commit()
+
+    return resultado

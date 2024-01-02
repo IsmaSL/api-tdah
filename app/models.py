@@ -37,6 +37,8 @@ class DatosClinicos(Base):
     __tablename__ = 'datos_clinicos'
     idUsuario = Column(Integer, ForeignKey('usuarios.idUsuario'), primary_key=True)
     adhd = Column(CHAR)
+    prob = Column(DECIMAL(5,2))
+    fecha_diagnostico = Column(Date)
     add = Column(CHAR)
     bipolar = Column(CHAR)
     unipolar = Column(CHAR)

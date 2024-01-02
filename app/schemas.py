@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from datetime import date
 from typing import Optional
+from typing import Dict
 
 # Resultado EEG
 class EEGRequest(BaseModel):
@@ -37,6 +38,8 @@ class DatosGenerales(BaseModel):
 
 class DatosClinicos(BaseModel):
     adhd: Optional[int]
+    prob: Optional[float]
+    fecha_diagnostico: Optional[date]
     add: Optional[int]
     bipolar: Optional[int]
     unipolar: Optional[int]
@@ -204,3 +207,17 @@ class ScoreFormUpdate(BaseModel):
     idPaciente: int
     form: str
     score: int
+
+class PrediccionEntrada(BaseModel):
+    idPaciente: int
+    prediccionML: int  # 1 para TDAH, 0 para no TDAH
+
+class PromedioRespuesta(BaseModel):
+    prevalencia: Optional[float]
+    diagnostico: Optional[float]
+
+class ConteoDiagnostico(BaseModel):
+    Sin_TDAH: int
+    TDAH_Inatento: int
+    TDAH_Hiperactivo: int
+    TDAH_Mixto: int

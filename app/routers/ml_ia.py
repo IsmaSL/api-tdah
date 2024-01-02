@@ -3,6 +3,9 @@ from pydantic import BaseModel
 import numpy as np
 import joblib
 import os
+import warnings
+
+warnings.simplefilter('always')
 
 # # Obtener la ruta del directorio actual
 current_dir = os.path.dirname(__file__)

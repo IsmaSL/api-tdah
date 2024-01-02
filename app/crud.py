@@ -1,10 +1,10 @@
 # Operaciones de la base de datos (Create, Read, Update, Delete).
+from sqlalchemy import func, case
 from sqlalchemy.orm import Session
-from .models import Usuario, Prueba, DatosGenerales, ScoreForm
+from .models import DatosClinicos, DetallePrueba, Usuario, Prueba, DatosGenerales, ScoreForm
 from .schemas import DiagnosticoEntrada, DiagnosticoSalida, UserCreate, PruebaUpdate, UsuarioCreatePatient, AddPrueba, ScoreFormUpdate
 from .security import get_password_hash
 
-from app import models, schemas
 
 def get_user_by_email(db: Session, email: str):
     return db.query(Usuario).filter(Usuario.correo == email).first()
@@ -100,7 +100,7 @@ def create_patient(db: Session, usuario: UsuarioCreatePatient):
 def create_test(db: Session, prueba: AddPrueba):
     # Crear y guardar el detalle de la prueba
     detalle_prueba_data = prueba.detalle_prueba.dict()
-    db_detalle_prueba = models.DetallePrueba(**detalle_prueba_data)
+    db_detalle_prueba = DetallePrueba(**detalle_prueba_data)
     db.add(db_detalle_prueba)
     db.commit()
     db.refresh(db_detalle_prueba)
@@ -108,7 +108,7 @@ def create_test(db: Session, prueba: AddPrueba):
     # Crear y guardar la prueba, incluyendo el id del detalle
     prueba_data = prueba.dict(exclude={"detalle_prueba", "idDetallePrueba"})
     prueba_data["idDetallePrueba"] = db_detalle_prueba.idDetallePrueba
-    db_prueba = models.Prueba(**prueba_data)
+    db_prueba = Prueba(**prueba_data)
     db.add(db_prueba)
     db.commit()
     db.refresh(db_prueba)
@@ -144,3 +144,59 @@ def update_or_create_score_form(db: Session, score_data: ScoreFormUpdate):
     
     db.commit()
     return new_score_record if not score_record else score_record
+
+def calcular_promedio_pruebas(db: Session, id_paciente: int, prediccion_ml: int):
+    pruebas = db.query(Prueba).filter(Prueba.idPaciente == id_paciente).all()
+    
+    total_probabilidad = 0
+    conteo_probabilidad = 0
+    total_diagnostico = 0 if prediccion_ml == 0 else prediccion_ml * len(pruebas)  # Ajuste inicial basado en ML
+    conteo_diagnostico = 0
+
+    for prueba in pruebas:
+        if prueba.probabilidad is not None:
+            total_probabilidad += prueba.probabilidad
+            conteo_probabilidad += 1
+        if prueba.diagnosticoFinal is not None:
+            total_diagnostico += int(prueba.diagnosticoFinal)
+            conteo_diagnostico += 1
+
+    promedio_probabilidad = total_probabilidad / conteo_probabilidad if conteo_probabilidad > 0 else None
+    promedio_diagnostico = total_diagnostico / conteo_diagnostico if conteo_diagnostico > 0 else None
+
+    # Ajustar el promedio a una categoría
+    if promedio_diagnostico is not None:
+        if promedio_diagnostico < 1.5:
+            promedio_diagnostico = 0  # No tiene TDAH
+        elif promedio_diagnostico < 2.5:
+            promedio_diagnostico = 1  # TDAH Inatento
+        elif promedio_diagnostico < 3.5:
+            promedio_diagnostico = 2  # TDAH Hiperactivo
+        else:
+            promedio_diagnostico = 3  # TDAH Mixto
+
+    return {"prevalencia": promedio_probabilidad, "diagnostico": promedio_diagnostico}
+
+def get_conteo_diagnostico_mes(db: Session, year: int, month: int):
+    conteo = {
+        '0': 0,  # Sin_TDAH
+        '1': 0,  # TDAH_Inatento
+        '2': 0,  # TDAH_Hiperactivo
+        '3': 0,  # TDAH_Mixto
+    }
+
+    resultados = db.query(
+        DatosClinicos.adhd,
+        func.count(DatosClinicos.idUsuario).label('conteo')
+    ).filter(
+        func.year(DatosClinicos.fecha_diagnostico) == year,
+        func.month(DatosClinicos.fecha_diagnostico) == month,
+        DatosClinicos.adhd.isnot(None)  # Asegurar que el diagnóstico no sea nulo
+    ).group_by(
+        DatosClinicos.adhd
+    ).all()
+
+    for resultado in resultados:
+        conteo[resultado.adhd] = resultado.conteo
+
+    return conteo
