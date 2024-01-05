@@ -79,9 +79,19 @@ class UserPasswordUpdate(BaseModel):
     class Config:
         from_attributes = True
 
+class UserRecent(BaseModel):
+    idUsuario: int
+    urlImg: Optional[str]
+    nombre: str
+    apellidoP: str
+    apellidoM: str
+    fechaRegistro: date
+
+    class Config:
+        from_attributes = True
+
 class TokenData(BaseModel):
     correo: str = None
-
 # Dispositivos
 class DevicePublic(BaseModel):
     idTipoDispositivo: int
@@ -155,6 +165,14 @@ class DatosGeneralesCreatePatient(BaseModel):
     numTelefonoFam: Optional[str]
     ocupacion: Optional[str]
 
+class DatosClinicosCreatePatient(BaseModel):
+    add: Optional[int]
+    bipolar: Optional[int]
+    unipolar: Optional[int]
+    anxiety: Optional[int]
+    substance: Optional[int]
+    med: Optional[int]
+
 class UsuarioCreatePatient(BaseModel):
     urlImg: Optional[str]
     nombre: str
@@ -166,6 +184,7 @@ class UsuarioCreatePatient(BaseModel):
     fechaRegistro: date
     estado: str
     datos_generales: DatosGeneralesCreatePatient
+    datos_clinicos: DatosClinicosCreatePatient
 
 class AddDetallePrueba(BaseModel):
     idEvaluacion: Optional[int] = None

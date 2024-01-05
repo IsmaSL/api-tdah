@@ -12,7 +12,6 @@ Base.metadata.create_all(bind=engine)
 # Configura CORS
 origins = [
     "http://localhost:4200",  
-    "http://localhost:58159"
     # La aplicación Angular se ejecuta en localhost:4200
     # Agregar aquí cualquier otro origen si es necesario
 ]

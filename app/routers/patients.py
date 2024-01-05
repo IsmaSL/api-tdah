@@ -3,7 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from app import crud
 from .. import models
-from ..schemas import PrediccionEntrada, PromedioRespuesta, UsuarioCreatePatient, UserPublic
+from ..schemas import PrediccionEntrada, PromedioRespuesta, UsuarioCreatePatient, UserPublic, UserRecent
 from ..dependencies import get_db, get_current_active_user
 from sqlalchemy.orm import Session
 from typing import List
@@ -26,6 +26,16 @@ def get_patients(
     pacientes = db.query(models.Usuario).filter(models.Usuario.rol == "Paciente").order_by(models.Usuario.nombre).all()
     return pacientes
 
+@router.get("/get-recente-patients", response_model=list[UserRecent])
+def get_recent_patients(
+        db: Session = Depends(get_db)
+    ):
+    try:
+        ultimos_pacientes = crud.get_recent_patients(db)
+        return ultimos_pacientes
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @router.get("/get-patient-info/{paciente_id}", response_model=UserPublic)
 def get_paciente(
         paciente_id: int,

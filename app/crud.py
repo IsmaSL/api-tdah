@@ -2,7 +2,7 @@
 from sqlalchemy import func, case
 from sqlalchemy.orm import Session
 from .models import DatosClinicos, DetallePrueba, Usuario, Prueba, DatosGenerales, ScoreForm
-from .schemas import DiagnosticoEntrada, DiagnosticoSalida, UserCreate, PruebaUpdate, UsuarioCreatePatient, AddPrueba, ScoreFormUpdate
+from .schemas import DiagnosticoEntrada, DiagnosticoSalida, UserCreate, PruebaUpdate, UsuarioCreatePatient, AddPrueba, ScoreFormUpdate, UserRecent
 from .security import get_password_hash
 
 
@@ -19,6 +19,15 @@ def create_user(db: Session, user: UserCreate):
 
 def get_pacientes(db: Session):
     return db.query(Usuario).filter(Usuario.rol == "Paciente").all()
+
+def get_recent_patients(db: Session):
+    ultimos_pacientes = db.query(Usuario).filter(
+        Usuario.rol == 'Paciente',
+        Usuario.estado == "1"
+    ).order_by(
+        Usuario.fechaRegistro.desc()
+    ).limit(3).all()
+    return [UserRecent.from_orm(paciente) for paciente in ultimos_pacientes]
 
 def update_prueba(db: Session, update_data: PruebaUpdate):
     # Obtener el ID de la prueba del objeto update_data
@@ -40,7 +49,7 @@ def update_prueba(db: Session, update_data: PruebaUpdate):
     db.commit()
     db.refresh(prueba)
     return prueba
-#
+
 def calcular_probabilidad(coincidencias: int) -> float:
     if coincidencias == 3:
         return 0.90  # 90% de probabilidad
@@ -85,16 +94,27 @@ def calcular_diagnostico_y_probabilidad(data: DiagnosticoEntrada) -> Diagnostico
     return DiagnosticoSalida(diagnosticoFinal=diagnostico, probabilidadPrevalencia=probabilidad)
     
 def create_patient(db: Session, usuario: UsuarioCreatePatient):
-    db_usuario = Usuario(**usuario.dict(exclude={"datos_generales"}))
+    db_usuario = Usuario(**usuario.dict(exclude={"datos_generales", "datos_clinicos"}))
     db.add(db_usuario)
     db.commit()
     db.refresh(db_usuario)
+
     if usuario.datos_generales:
         usuario_datos_generales = DatosGenerales(
-            idUsuario=db_usuario.idUsuario, **usuario.datos_generales.dict())
+            idUsuario=db_usuario.idUsuario, **usuario.datos_generales.dict()
+        )
         db.add(usuario_datos_generales)
         db.commit()
         db.refresh(usuario_datos_generales)
+
+    if usuario.datos_clinicos:
+        usuario_datos_clinicos = DatosClinicos(
+            idUsuario=db_usuario.idUsuario, **usuario.datos_clinicos.dict()
+        )
+        db.add(usuario_datos_clinicos)
+        db.commit()
+        db.refresh(usuario_datos_clinicos)
+    
     return db_usuario
 
 def create_test(db: Session, prueba: AddPrueba):
